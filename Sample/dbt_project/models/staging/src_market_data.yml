@@ -1,0 +1,7 @@
+version: 2
+
+sources:
+  - name: market_data
+    schema: public  # adjust to your actual schema
+    tables:
+      - name: global_market_ai_dataset
