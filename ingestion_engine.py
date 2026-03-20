@@ -1,15 +1,18 @@
 import pandas as pd
 import glob
 import os
+import logging
 from sqlalchemy import create_engine, text
 import argparse
+
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 # Configuration
 # For PostgreSQL: "postgresql://username:password@localhost:5432/market_db"
 # For BigQuery: "bigquery://project-id/dataset_id"
 # We will default to a local SQLite database for demonstration purposes.
-DEFAULT_CSV_DIRECTORY = "d:/Sample"
-DEFAULT_DB_URL = "sqlite:///d:/Sample/market_data.db" 
+DEFAULT_CSV_DIRECTORY = "./Sample"
+DEFAULT_DB_URL = "sqlite:///./Sample/market_data.db"
 
 RAW_TABLE_NAME = "raw_market_data"
 UNIFIED_TABLE_NAME = "unified_time_series"
@@ -24,26 +27,33 @@ def ingest_and_clean_data(csv_dir):
     """
     Reads CSVs from the directory, performs initial cleaning, and aligns formatting.
     """
-    print(f"[*] Reading CSVs from {csv_dir}...")
+    logging.info(f"[*] Reading CSVs from {csv_dir}...")
     
     # Allows reading multiple CSV files if needed
     all_files = glob.glob(os.path.join(csv_dir, "*.csv"))
     
     if not all_files:
-        print("[-] No CSV files found.")
+        logging.warning("[-] No CSV files found.")
         return None
         
     df_list = []
     for file in all_files:
-        print(f"   -> Reading {os.path.basename(file)}...")
-        df = pd.read_csv(file)
-        df_list.append(df)
+        logging.info(f"   -> Reading {os.path.basename(file)}...")
+        try:
+            df = pd.read_csv(file)
+            df_list.append(df)
+        except Exception as e:
+            logging.error(f"   -> Failed to read {os.path.basename(file)}: {e}")
         
+    if not df_list:
+        logging.warning("[-] No valid CSV data could be read.")
+        return None
+
     # Combine datasets programmatically 
     combined_df = pd.concat(df_list, ignore_index=True)
     initial_rows = len(combined_df)
     
-    print("[*] Cleaning data...")
+    logging.info("[*] Cleaning data...")
     # 1. Handle missing dates by removing rows with no dates
     combined_df = combined_df.dropna(subset=['Date'])
     
@@ -63,23 +73,23 @@ def ingest_and_clean_data(csv_dir):
     combined_df[numeric_cols] = combined_df[numeric_cols].fillna(0) # or replace with mean, median, etc. depending on business logic
     
     final_rows = len(combined_df)
-    print(f"[+] Cleaned data. Retained {final_rows} out of {initial_rows} rows.")
+    logging.info(f"[+] Cleaned data. Retained {final_rows} out of {initial_rows} rows.")
     return combined_df
 
 def load_to_database(df, engine):
     """
     Loads the cleaned dataframe into the database.
     """
-    print(f"[*] Loading data into `{RAW_TABLE_NAME}` table in the database...")
+    logging.info(f"[*] Loading data into `{RAW_TABLE_NAME}` table in the database...")
     # We use 'replace' to overwrite the table if it exists. For incremental loading, use 'append'.
-    df.to_sql(RAW_TABLE_NAME, engine, if_exists='replace', index=False)
-    print("[+] Data loaded successfully.")
+    df.to_sql(RAW_TABLE_NAME, engine, if_exists='replace', index=False, chunksize=1000)
+    logging.info("[+] Data loaded successfully.")
 
 def transform_data(engine):
     """
     Executes a SQL query to create a unified time-series table where indicators are aligned by date.
     """
-    print(f"[*] Transforming data to create `{UNIFIED_TABLE_NAME}`...")
+    logging.info(f"[*] Transforming data to create `{UNIFIED_TABLE_NAME}`...")
     
     # This SQL query achieves the transformation:
     # We group by Date to create a time-series.
@@ -115,7 +125,7 @@ def transform_data(engine):
         conn.execute(text(drop_sql))
         conn.execute(text(transform_sql))
         
-    print(f"[+] Transformation complete. Unified time-series table `{UNIFIED_TABLE_NAME}` created.")
+    logging.info(f"[+] Transformation complete. Unified time-series table `{UNIFIED_TABLE_NAME}` created.")
 
 def main():
     args = parse_args()
@@ -124,7 +134,7 @@ def main():
     try:
         engine = create_engine(args.db_url)
     except Exception as e:
-        print(f"[-] Failed to connect to database: {e}")
+        logging.error(f"[-] Failed to connect to database: {e}")
         return
     
     # Run the ingestion and transformation pipeline
@@ -134,9 +144,9 @@ def main():
         try:
             load_to_database(cleaned_data, engine)
             transform_data(engine)
-            print("[✓] Ingestion Engine pipeline finished successfully.")
+            logging.info("[✓] Ingestion Engine pipeline finished successfully.")
         except Exception as e:
-            print(f"[-] Pipeline failed during DB operations: {e}")
+            logging.error(f"[-] Pipeline failed during DB operations: {e}")
 
 if __name__ == "__main__":
     main()

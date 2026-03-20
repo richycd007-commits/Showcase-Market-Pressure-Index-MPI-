@@ -1,0 +1,5 @@
+Date,Market_Type,Market_Name,Opening_Price,Closing_Price,Trading_Volume,Market_Cap,Volatility_Index,News_Sentiment,Social_Sentiment,Economic_Impact_Score,Inflation_Rate,Interest_Rate,Currency_Strength_Index
+2023-01-01,EQUITY,S&P 500,3800.0,3850.0,1000000,30000000,18.5,0.6,0.5,4.2,6.5,4.5,105.2
+2023-01-01,CRYPTO,Bitcoin,16500.0,16600.0,500000,320000,45.0,-0.2,0.1,2.0,6.5,4.5,105.2
+2023-01-02,EQUITY,S&P 500,3850.0,3820.0,1100000,29800000,19.0,0.4,0.3,4.1,6.5,4.5,105.3
+2023-01-02,CRYPTO,Bitcoin,16600.0,16750.0,600000,325000,46.0,0.1,0.2,2.1,6.5,4.5,105.3
